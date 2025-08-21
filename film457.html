@@ -132,7 +132,6 @@
             transition: all 0.3s;
             cursor: pointer;
             position: relative;
-            aspect-ratio: 2/3;
         }
 
         .content-card:hover {
@@ -147,13 +146,25 @@
 
         .content-poster {
             width: 100%;
-            height: 100%;
+            aspect-ratio: 2/3;
             object-fit: cover;
+        }
+
+        .movie-title {
+            padding: 10px;
+            font-size: 0.9rem;
+            text-align: center;
+            height: 40px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
         }
 
         .resume-badge {
             position: absolute;
-            bottom: 10px;
+            bottom: 50px;
             left: 0;
             right: 0;
             background: rgba(0,0,0,0.7);
@@ -514,6 +525,7 @@
                                 <div class="content-card" tabindex="0" data-movie-id="${movie.id}">
                                     <img src="${movie.poster}" alt="${movie.title}" class="content-poster" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450/181818/ffffff?text=No+Image'">
                                     ${hasResume ? '<div class="resume-badge">KALDIĞIN YERDEN</div>' : ''}
+                                    <div class="movie-title">${movie.title}</div>
                                 </div>
                             `;
                         }).join('')}
@@ -561,16 +573,13 @@
                                 'progressControl',
                                 'remainingTimeDisplay',
                                 'playbackRateMenuButton',
-                                'audioTrackButton',
+                                'audioTrackButton', // Dublaj seçenekleri için eklendi
                                 'subtitlesButton',
                                 'fullscreenToggle'
                             ],
                             'currentTimeDisplay': true,
                             'timeDivider': true,
                             'durationDisplay': true
-                        },
-                        audioTracks: {
-                            mode: 'disabled' // 'disabled' | 'hidden' | 'showing'
                         }
                     });
                     
@@ -578,21 +587,32 @@
                     player.on('ended', savePlaybackPosition);
                     
                     // Add sample audio tracks (dublaj seçenekleri)
-                    player.audioTracks().addTrack(new videojs.AudioTrack({
-                        id: 'dublaj-tr',
-                        kind: 'translation',
-                        label: 'Türkçe Dublaj',
-                        language: 'tr',
-                        enabled: true
-                    }));
-                    
-                    player.audioTracks().addTrack(new videojs.AudioTrack({
-                        id: 'orijinal',
-                        kind: 'main',
-                        label: 'Orijinal Ses',
-                        language: 'en',
-                        enabled: false
-                    }));
+                    player.ready(function() {
+                        // Ses parçalarını ekle
+                        player.audioTracks().addTrack(new videojs.AudioTrack({
+                            id: 'dublaj-tr',
+                            kind: 'translation',
+                            label: 'Türkçe Dublaj',
+                            language: 'tr',
+                            enabled: true
+                        }));
+                        
+                        player.audioTracks().addTrack(new videojs.AudioTrack({
+                            id: 'orijinal',
+                            kind: 'main',
+                            label: 'Orijinal Ses',
+                            language: 'en',
+                            enabled: false
+                        }));
+                        
+                        // Ses parçalarını güncelleme olayını dinle
+                        player.audioTracks().addEventListener('change', function() {
+                            const tracks = player.audioTracks();
+                            for (let i = 0; i < tracks.length; i++) {
+                                console.log('Track:', tracks[i].id, tracks[i].enabled);
+                            }
+                        });
+                    });
                 }
                 
                 // Set player sources
