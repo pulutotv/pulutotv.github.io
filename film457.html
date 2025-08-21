@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FİLMLER</title>
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #e50914;
+            --dark: #141414;
+            --light: #ffffff;
+            --gray: #808080;
+            --card-bg: #181818;
+            --card-hover: #282828;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        body {
+            background: var(--dark);
+            color: var(--light);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(to bottom, rgba(20,20,20,0.9), transparent);
+            padding: 15px 5%;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-decoration: none;
+            text-transform: uppercase;
+        }
+
+        .search-container {
+            flex-grow: 1;
+            max-width: 500px;
+            margin: 0 20px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 15px 10px 40px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 20px;
+            color: var(--light);
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray);
+        }
+
+        /* Main Content */
+        .main-container {
+            padding: 20px 5%;
+        }
+
+        /* Content Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .content-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 15px;
+            }
+            
+            .search-container {
+                margin: 0 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .content-grid {
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+                gap: 10px;
+            }
+            
+            header {
+                flex-wrap: wrap;
+                padding-bottom: 10px;
+            }
+            
+            .search-container {
+                order: 3;
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
+
+        /* Content Card */
+        .content-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+            aspect-ratio: 2/3;
+        }
+
+        .content-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .content-card:focus {
+            outline: 2px solid var(--primary);
+        }
+
+        .content-poster {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .resume-badge {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: var(--primary);
+            padding: 5px;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        /* Player */
+        .player-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 200;
+            display: none;
+        }
+
+        .player-header {
+            padding: 15px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 201;
+        }
+
+        .player-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            margin-left: auto;
+        }
+
+        #video-player {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Video.js custom styles */
+        .vjs-big-play-button {
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+        }
+
+        .vjs-playback-rate .vjs-menu-button-popup .vjs-menu .vjs-menu-content {
+            width: 4em;
+            left: -2em;
+        }
+
+        .vjs-audio-button,
+        .vjs-subs-caps-button {
+            display: block !important;
+        }
+
+        /* Loading and Error */
+        .loading, .error {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            width: 100%;
+            gap: 15px;
+            font-size: 1.2rem;
+        }
+
+        .loading i {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Keyboard Navigation */
+        .content-card:focus-visible {
+            outline: 3px solid var(--primary);
+            outline-offset: 3px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <a href="#" class="logo">FİLMLER</a>
+        <div class="search-container">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" class="search-input" placeholder="Film ara...">
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <div id="content-container">
+            <div class="loading">
+                <i class="fas fa-spinner"></i>
+                <span>Filmler yükleniyor...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player -->
+    <div class="player-container" id="player-container">
+        <div class="player-header">
+            <button class="player-close" id="player-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="video-player">
+            <video id="video" class="video-js vjs-default-skin" controls preload="auto">
+                <track kind="captions" src="" srclang="tr" label="Türkçe">
+                <track kind="subtitles" src="" srclang="en" label="English">
+            </video>
+        </div>
+    </div>
+
+    <!-- Video.js Library -->
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.3/hls.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Global variables
+            let allMovies = [];
+            let player;
+            let lastPlayedMovie = null;
+            
+            // DOM elements
+            const searchInput = document.querySelector('.search-input');
+            const contentContainer = document.getElementById('content-container');
+            const playerContainer = document.getElementById('player-container');
+            const playerClose = document.getElementById('player-close');
+            
+            // Initialize the app
+            initApp();
+            
+            // Functions
+            function initApp() {
+                setupEventListeners();
+                loadM3UPlaylist();
+            }
+            
+            function setupEventListeners() {
+                // Search functionality
+                searchInput.addEventListener('input', function() {
+                    const query = this.value.trim().toLowerCase();
+                    if (query.length === 0) {
+                        renderMovies(allMovies, 'Tüm Filmler');
+                        return;
+                    }
+                    
+                    const results = allMovies.filter(movie => 
+                        movie.title.toLowerCase().includes(query)
+                    );
+                    
+                    renderMovies(results, `Arama: "${query}"`);
+                });
+                
+                // Player close
+                playerClose.addEventListener('click', function() {
+                    playerContainer.style.display = 'none';
+                    if (player) {
+                        player.pause();
+                        savePlaybackPosition();
+                    }
+                });
+                
+                // Keyboard navigation for TV
+                document.addEventListener('keydown', function(e) {
+                    // Handle player controls
+                    if (playerContainer.style.display === 'block') {
+                        if (e.key === 'Backspace' || e.key === 'Escape' || e.key === 'Enter') {
+                            if (player.isFullscreen()) {
+                                if (e.key === 'Enter') {
+                                    if (player.paused()) {
+                                        player.play();
+                                    } else {
+                                        player.pause();
+                                    }
+                                } else {
+                                    player.exitFullscreen();
+                                }
+                            } else {
+                                playerContainer.style.display = 'none';
+                                player.pause();
+                                savePlaybackPosition();
+                            }
+                            e.preventDefault();
+                        } 
+                        // Sağ ok tuşu: 10 saniye ileri
+                        else if (e.key === 'ArrowRight') {
+                            if (player) {
+                                player.currentTime(player.currentTime() + 10);
+                                e.preventDefault();
+                            }
+                        } 
+                        // Sol ok tuşu: 10 saniye geri
+                        else if (e.key === 'ArrowLeft') {
+                            if (player) {
+                                player.currentTime(player.currentTime() - 10);
+                                e.preventDefault();
+                            }
+                        }
+                        return;
+                    }
+                    
+                    // Main navigation
+                    const focused = document.activeElement;
+                    const focusable = Array.from(document.querySelectorAll('.content-card, .search-input'));
+                    const currentIndex = focusable.indexOf(focused);
+                    
+                    if (e.key === 'ArrowRight' && currentIndex < focusable.length - 1) {
+                        focusable[currentIndex + 1].focus();
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                        focusable[currentIndex - 1].focus();
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowDown') {
+                        const nextRowIndex = currentIndex + Math.floor(window.innerWidth / 200);
+                        if (nextRowIndex < focusable.length) {
+                            focusable[nextRowIndex].focus();
+                            e.preventDefault();
+                        }
+                    } else if (e.key === 'ArrowUp' && currentIndex >= Math.floor(window.innerWidth / 200)) {
+                        const prevRowIndex = currentIndex - Math.floor(window.innerWidth / 200);
+                        if (prevRowIndex >= 0) {
+                            focusable[prevRowIndex].focus();
+                            e.preventDefault();
+                        }
+                    } else if (e.key === 'Enter' && focused?.classList.contains('content-card')) {
+                        const movieId = focused.dataset.movieId;
+                        playMovie(movieId);
+                        e.preventDefault();
+                    } else if (e.key === 's' || e.key === 'S') {
+                        searchInput.focus();
+                        e.preventDefault();
+                    }
+                });
+            }
+            
+            function savePlaybackPosition() {
+                if (lastPlayedMovie && player && !player.paused()) {
+                    const currentTime = player.currentTime();
+                    localStorage.setItem(`movie_${lastPlayedMovie.id}`, currentTime);
+                }
+            }
+            
+            function loadM3UPlaylist() {
+                const m3uUrl = 'https://raw.githubusercontent.com/pulutotv/PulutoTVDIZIFILM/refs/heads/main/filmfun.m3u';
+                
+                fetch(m3uUrl)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.text();
+                    })
+                    .then(data => parseM3U(data))
+                    .catch(error => {
+                        console.error('Error loading M3U playlist:', error);
+                        showError('Filmler yüklenirken bir hata oluştu. İnternet bağlantınızı kontrol edip sayfayı yenileyin.');
+                    });
+            }
+            
+            function parseM3U(data) {
+                try {
+                    // Improved M3U parser
+                    const lines = data.split('\n');
+                    const movies = [];
+                    let currentMovie = {};
+                    
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        
+                        if (line.startsWith('#EXTINF:')) {
+                            // Parse EXTINF line
+                            const info = line.substring(8).split(',');
+                            const duration = info[0];
+                            const title = info.slice(1).join(',').trim();
+                            
+                            // Parse attributes
+                            const attrs = {};
+                            const attrMatch = line.match(/tvg-logo="([^"]+)"/);
+                            if (attrMatch) attrs.logo = attrMatch[1];
+                            
+                            const groupMatch = line.match(/group-title="([^"]+)"/);
+                            if (groupMatch) attrs.group = groupMatch[1];
+                            
+                            currentMovie = {
+                                title: title,
+                                attrs: attrs
+                            };
+                        } else if (line && !line.startsWith('#') && currentMovie.title) {
+                            // This is the URL line
+                            currentMovie.url = line;
+                            movies.push({
+                                id: movies.length + 1, // Use a simple numeric ID
+                                title: currentMovie.title,
+                                url: line,
+                                poster: currentMovie.attrs.logo || 'https://via.placeholder.com/300x450/181818/ffffff?text=No+Image',
+                                group: currentMovie.attrs.group || 'Film'
+                            });
+                            currentMovie = {};
+                        }
+                    }
+                    
+                    // Filter out non-movie content
+                    allMovies = movies.filter(movie => 
+                        !movie.title.toLowerCase().includes('dizi') && 
+                        !movie.title.toLowerCase().includes('belgesel') &&
+                        !movie.title.toLowerCase().includes('animasyon')
+                    );
+                    
+                    renderMovies(allMovies, 'Tüm Filmler');
+                } catch (error) {
+                    console.error('Error parsing M3U:', error);
+                    showError('Film listesi işlenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+                }
+            }
+            
+            function showError(message) {
+                contentContainer.innerHTML = `
+                    <div class="error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>${message}</span>
+                    </div>
+                `;
+            }
+            
+            function renderMovies(movies, title) {
+                if (movies.length === 0) {
+                    contentContainer.innerHTML = `
+                        <div class="error">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Gösterilecek film bulunamadı.</span>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                contentContainer.innerHTML = `
+                    <h2 style="margin-bottom: 20px; font-size: 1.5rem;">${title}</h2>
+                    <div class="content-grid">
+                        ${movies.map(movie => {
+                            const savedTime = localStorage.getItem(`movie_${movie.id}`);
+                            const hasResume = savedTime && parseFloat(savedTime) > 60; // Only show if more than 1 minute watched
+                            
+                            return `
+                                <div class="content-card" tabindex="0" data-movie-id="${movie.id}">
+                                    <img src="${movie.poster}" alt="${movie.title}" class="content-poster" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450/181818/ffffff?text=No+Image'">
+                                    ${hasResume ? '<div class="resume-badge">KALDIĞIN YERDEN</div>' : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+                
+                // Add click events to movie cards
+                contentContainer.querySelectorAll('.content-card').forEach(card => {
+                    card.addEventListener('click', function() {
+                        const movieId = this.dataset.movieId;
+                        playMovie(movieId);
+                    });
+                });
+            }
+            
+            function playMovie(movieId) {
+                const movie = allMovies.find(m => m.id == movieId);
+                if (!movie) return;
+                
+                lastPlayedMovie = movie;
+                
+                // Show player
+                playerContainer.style.display = 'block';
+                
+                // Check for saved playback position
+                const savedTime = localStorage.getItem(`movie_${movieId}`);
+                const startTime = savedTime ? parseFloat(savedTime) : 0;
+                
+                // Initialize player if not already initialized
+                if (!player) {
+                    player = videojs('video', {
+                        controls: true,
+                        autoplay: true,
+                        preload: 'auto',
+                        responsive: true,
+                        fluid: true,
+                        playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2],
+                        controlBar: {
+                            children: [
+                                'playToggle',
+                                'volumePanel',
+                                'currentTimeDisplay',
+                                'timeDivider',
+                                'durationDisplay',
+                                'progressControl',
+                                'remainingTimeDisplay',
+                                'playbackRateMenuButton',
+                                'audioTrackButton',
+                                'subtitlesButton',
+                                'fullscreenToggle'
+                            ],
+                            'currentTimeDisplay': true,
+                            'timeDivider': true,
+                            'durationDisplay': true
+                        },
+                        audioTracks: {
+                            mode: 'disabled' // 'disabled' | 'hidden' | 'showing'
+                        }
+                    });
+                    
+                    player.on('pause', savePlaybackPosition);
+                    player.on('ended', savePlaybackPosition);
+                    
+                    // Add sample audio tracks (dublaj seçenekleri)
+                    player.audioTracks().addTrack(new videojs.AudioTrack({
+                        id: 'dublaj-tr',
+                        kind: 'translation',
+                        label: 'Türkçe Dublaj',
+                        language: 'tr',
+                        enabled: true
+                    }));
+                    
+                    player.audioTracks().addTrack(new videojs.AudioTrack({
+                        id: 'orijinal',
+                        kind: 'main',
+                        label: 'Orijinal Ses',
+                        language: 'en',
+                        enabled: false
+                    }));
+                }
+                
+                // Set player sources
+                player.src({
+                    src: movie.url,
+                    type: movie.url.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+                });
+                
+                player.ready(function() {
+                    if (startTime > 0) {
+                        player.currentTime(startTime);
+                        
+                        // Show resume notification
+                        const notification = player.createModal(`
+                            <div style="background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 5px; text-align: center;">
+                                <h3>Kaldığınız yerden devam edilsin mi?</h3>
+                                <p>${formatTime(startTime)}</p>
+                                <div style="margin-top: 15px;">
+                                    <button onclick="this.parentElement.parentElement.close()" style="background: #e50914; color: white; border: none; padding: 8px 15px; margin: 0 5px; border-radius: 3px; cursor: pointer;">
+                                        Evet
+                                    </button>
+                                    <button onclick="this.parentElement.parentElement.close(); player.currentTime(0);" style="background: #333; color: white; border: none; padding: 8px 15px; margin: 0 5px; border-radius: 3px; cursor: pointer;">
+                                        Baştan Başlat
+                                    </div>
+                                </div>
+                            </div>
+                        `);
+                        
+                        // Auto close after 5 seconds
+                        setTimeout(() => {
+                            if (notification && notification.close) {
+                                notification.close();
+                            }
+                        }, 5000);
+                    }
+                    
+                    // Auto play and fullscreen
+                    player.play();
+                    
+                    setTimeout(() => {
+                        if (!player.isFullscreen()) {
+                            player.requestFullscreen().catch(e => {
+                                console.log('Fullscreen error:', e);
+                            });
+                        }
+                    }, 300);
+                });
+            }
+            
+            function formatTime(seconds) {
+                const h = Math.floor(seconds / 3600);
+                const m = Math.floor((seconds % 3600) / 60);
+                const s = Math.floor(seconds % 60);
+                return [
+                    h.toString().padStart(2, '0'),
+                    m.toString().padStart(2, '0'),
+                    s.toString().padStart(2, '0')
+                ].join(':');
+            }
+        });
+    </script>
+</body>
+</html>
