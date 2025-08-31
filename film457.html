@@ -424,7 +424,7 @@
             }
             
             function loadM3UPlaylist() {
-                const m3uUrl = 'https://raw.githubusercontent.com/pulutotv/PulutoTVDIZIFILM/refs/heads/main/filmler.m3u';
+                const m3uUrl = 'https://raw.githubusercontent.com/pulutotv/PulutoTVDIZIFILM/refs/heads/main/filmfun.m3u';
                 
                 fetch(m3uUrl)
                     .then(response => {
@@ -440,7 +440,6 @@
             
             function parseM3U(data) {
                 try {
-                    // Improved M3U parser
                     const lines = data.split('\n');
                     const movies = [];
                     let currentMovie = {};
@@ -449,12 +448,9 @@
                         const line = lines[i].trim();
                         
                         if (line.startsWith('#EXTINF:')) {
-                            // Parse EXTINF line
                             const info = line.substring(8).split(',');
-                            const duration = info[0];
                             const title = info.slice(1).join(',').trim();
                             
-                            // Parse attributes
                             const attrs = {};
                             const attrMatch = line.match(/tvg-logo="([^"]+)"/);
                             if (attrMatch) attrs.logo = attrMatch[1];
@@ -467,31 +463,22 @@
                                 attrs: attrs
                             };
                         } else if (line && !line.startsWith('#') && currentMovie.title) {
-                            // This is the URL line
-                            currentMovie.url = line;
                             movies.push({
-                                id: movies.length + 1, // Use a simple numeric ID
+                                id: movies.length + 1, // Her filme benzersiz bir ID ata
                                 title: currentMovie.title,
                                 url: line,
                                 poster: currentMovie.attrs.logo || 'https://via.placeholder.com/300x450/181818/ffffff?text=No+Image',
                                 group: currentMovie.attrs.group || 'Film'
                             });
-                            currentMovie = {};
+                            currentMovie = {}; // Bir sonraki film için sıfırla
                         }
                     }
                     
-                    // Filter out non-movie content
-                    // allMovies = movies.filter(movie => 
-                    //     !movie.title.toLowerCase().includes('dizi') && 
-                    //     !movie.title.toLowerCase().includes('belgesel') &&
-                    //     !movie.title.toLowerCase().includes('animasyon')
-                    // );
-                    allMovies = movies; // TÜM FİLTREYİ KALDIRIP LİSTEDEKİ HER ŞEYİ GÖSTERİR
-                    
-                    renderMovies(allMovies, 'Tüm Filmler');
+                    allMovies = movies; // Filtrelemeyi şimdilik kaldırıyoruz, tüm içerik listelensin
+                    renderMovies(allMovies, 'Tüm İçerikler');
                 } catch (error) {
-                    console.error('Error parsing M3U:', error);
-                    showError('Film listesi işlenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+                    console.error('M3U işlenirken hata:', error);
+                    showError('Film listesi işlenirken bir hata oluştu.');
                 }
             }
             
@@ -542,90 +529,62 @@
                 });
             }
             
-            
-                   function playMovie(movieId) {
+            function playMovie(movieId) {
                 const movie = allMovies.find(m => m.id == movieId);
                 if (!movie || !movie.url) {
-                    console.error('Film bilgileri veya URL bulunamadı.');
                     alert('Bu film için geçerli bir yayın adresi bulunamadı.');
                     return;
                 }
 
-                // 1. Oynatma pozisyonunu SADECE bu film için localStorage'dan alıyoruz.
+                // Kayıtlı zamanı SADECE bu film ID'si için al
                 const savedTime = localStorage.getItem(`movie_${movie.id}`);
-                // 2. Eğer kayıtlı süre yoksa veya 60 saniyeden azsa, 0'dan başlatıyoruz.
                 const startTime = (savedTime && parseFloat(savedTime) > 60) ? parseFloat(savedTime) : 0;
 
-                // 3. Oynatıcıyı (player) görünür yapıyoruz.
                 playerContainer.style.display = 'block';
-                
-                // 4. Son oynatılan filmi saklıyoruz ki doğru yere kaydedebilelim.
                 lastPlayedMovie = movie;
 
-                // Eğer video.js oynatıcısı henüz başlatılmadıysa, şimdi başlatıyoruz.
                 if (!player) {
                     player = videojs('video', {
                         controls: true,
-                        autoplay: true,
+                        autoplay: false,
                         preload: 'auto',
                         fluid: true
                     });
                     
-                    player.on('pause', savePlaybackPosition);
-                    player.on('ended', function() {
-                        // Film bittiğinde kaydı sıfırla veya sil
-                        localStorage.removeItem(`movie_${lastPlayedMovie.id}`);
-                    });
+                    player.on('timeupdate', savePlaybackPosition); // Kaydetme olayını timeupdate yapalım
                 }
                 
-                // Oynatıcıya filmin URL'sini veriyoruz.
                 player.src({
                     src: movie.url,
                     type: movie.url.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
                 });
                 
-                // Oynatıcı hazır olduğunda yapılacaklar
                 player.ready(function() {
-                    // SADECE film daha önce izlenmişse (startTime > 0 ise) sorma ekranını göster.
+                    // Sadece kayıtlı süre varsa sorma ekranını göster
                     if (startTime > 0) {
                         player.currentTime(startTime);
-                        
                         const notification = player.createModal(`
                             <div style="background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 5px; text-align: center;">
-                                <h3>Kaldığınız yerden devam edilsin mi?</h3>
-                                <p>${formatTime(startTime)}</p>
-                                <div style="margin-top: 15px;">
-                                    <button onclick="this.parentElement.parentElement.close()" style="background: #e50914; color: white; border: none; padding: 8px 15px; margin: 0 5px; border-radius: 3px; cursor: pointer;">
-                                        Evet
-                                    </button>
-                                    <button onclick="this.parentElement.parentElement.close(); player.currentTime(0);" style="background: #333; color: white; border: none; padding: 8px 15px; margin: 0 5px; border-radius: 3px; cursor: pointer;">
-                                        Baştan Başlat
-                                    </div>
-                                </div>
+                                <h3>Kaldığınız yerden devam edilsin mi? (${formatTime(startTime)})</h3>
+                                <button onclick="this.parentElement.parentElement.close()" style="background:#e50914;color:white;border:none;padding:8px 15px;margin:5px;cursor:pointer;">Evet</button>
+                                <button onclick="player.currentTime(0); this.parentElement.parentElement.close();" style="background:#333;color:white;border:none;padding:8px 15px;margin:5px;cursor:pointer;">Baştan Başlat</button>
                             </div>
                         `);
-                        
-                        setTimeout(() => {
-                            if (notification && notification.close) {
-                                notification.close();
-                            }
-                        }, 5000);
-                    } else {
-                        player.currentTime(0); // Hiç izlenmediyse en baştan başlat.
+                        setTimeout(() => notification.close(), 5000);
                     }
                     
                     player.play();
+                });
+            }
                     
-                    // Oynatıcıyı tam ekran yapmayı dene
                     setTimeout(() => {
                         if (!player.isFullscreen()) {
                             player.requestFullscreen().catch(e => {
-                                console.log('Tam ekran hatası:', e);
+                                console.log('Fullscreen error:', e);
                             });
                         }
                     }, 300);
                 });
-            }
             }
             
             function formatTime(seconds) {
