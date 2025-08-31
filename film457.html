@@ -481,11 +481,12 @@
                     }
                     
                     // Filter out non-movie content
-                    allMovies = movies.filter(movie => 
-                        !movie.title.toLowerCase().includes('dizi') && 
-                        !movie.title.toLowerCase().includes('belgesel') &&
-                        !movie.title.toLowerCase().includes('animasyon')
-                    );
+                    // allMovies = movies.filter(movie => 
+                    //     !movie.title.toLowerCase().includes('dizi') && 
+                    //     !movie.title.toLowerCase().includes('belgesel') &&
+                    //     !movie.title.toLowerCase().includes('animasyon')
+                    // );
+                    allMovies = movies; // TÜM FİLTREYİ KALDIRIP LİSTEDEKİ HER ŞEYİ GÖSTERİR
                     
                     renderMovies(allMovies, 'Tüm Filmler');
                 } catch (error) {
