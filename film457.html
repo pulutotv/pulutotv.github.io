@@ -136,7 +136,7 @@
 
         .content-card:hover {
             transform: scale(1.05);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            box-shadow: 极细 10px 20px rgba(0,0,0,0.5);
             z-index: 10;
         }
 
@@ -243,6 +243,26 @@
             display: block !important;
         }
 
+        /* Custom audio tracks style */
+        .vjs-audio-button .vjs-menu .vjs-menu-content {
+            background-color: #181818;
+            width: 150px;
+        }
+
+        .vjs-audio-button .vjs-menu li {
+            color: white;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+
+        .vjs-audio-button .vjs-menu li.vjs-selected {
+            background-color: #e50914;
+        }
+
+        .vjs-audio-button .vjs-menu li:hover {
+            background-color: #333;
+        }
+
         /* Loading and Error */
         .loading, .error {
             display: flex;
@@ -266,47 +286,6 @@
         .content-card:focus-visible {
             outline: 3px solid var(--primary);
             outline-offset: 3px;
-        }
-        
-        /* Audio selection modal */
-        .audio-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 300;
-        }
-        
-        .audio-modal-content {
-            background: #181818;
-            padding: 30px;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 500px;
-            text-align: center;
-        }
-        
-        .audio-modal h2 {
-            margin-bottom: 20px;
-            color: var(--light);
-        }
-        
-        .audio-option {
-            background: var(--card-bg);
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .audio-option:hover {
-            background: var(--primary);
         }
     </style>
 </head>
@@ -483,6 +462,7 @@
             }
             
             function loadM3UPlaylist() {
+                // Güncellenmiş M3U URL'si
                 const m3uUrl = 'https://raw.githubusercontent.com/pulutotv/PulutoTVDIZIFILM/refs/heads/main/filmler.m3u';
                 
                 fetch(m3uUrl)
@@ -624,51 +604,8 @@
                 currentMovie = movie;
                 lastPlayedMovie = movie;
                 
-                // Dublaj seçeneği olan filmlerde ses seçim modalını göster
-                if (movie.audio === 'dublaj') {
-                    // Modal oluştur
-                    const modal = document.createElement('div');
-                    modal.style.position = 'fixed';
-                    modal.style.top = '0';
-                    modal.style.left = '0';
-                    modal.style.width = '100%';
-                    modal.style.height = '100%';
-                    modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
-                    modal.style.display = 'flex';
-                    modal.style.justifyContent = 'center';
-                    modal.style.alignItems = 'center';
-                    modal.style.zIndex = '1000';
-                    
-                    modal.innerHTML = `
-                        <div style="background: #181818; padding: 30px; border-radius: 8px; width: 90%; max-width: 500px; text-align: center;">
-                            <h2 style="margin-bottom: 20px; color: white;">Ses Seçeneği</h2>
-                            <div style="display: flex; flex-direction: column; gap: 15px;">
-                                <button id="audio-dublaj" style="background: #e50914; color: white; border: none; padding: 15px; border-radius: 4px; cursor: pointer; font-size: 16px;">
-                                    Türkçe Dublaj
-                                </button>
-                                <button id="audio-orijinal" style="background: #333; color: white; border: none; padding: 15px; border-radius: 4px; cursor: pointer; font-size: 16px;">
-                                    Orijinal Ses
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    
-                    document.body.appendChild(modal);
-                    
-                    // Buton event listener'ları
-                    document.getElementById('audio-dublaj').addEventListener('click', function() {
-                        document.body.removeChild(modal);
-                        startPlayback();
-                    });
-                    
-                    document.getElementById('audio-orijinal').addEventListener('click', function() {
-                        document.body.removeChild(modal);
-                        startPlayback();
-                    });
-                } else {
-                    // Doğrudan oynatmayı başlat
-                    startPlayback();
-                }
+                // Doğrudan oynatmayı başlat
+                startPlayback();
             }
             
             function startPlayback() {
@@ -700,6 +637,34 @@
                 });
                 
                 player.ready(function() {
+                    // Dublaj seçeneklerini ekle
+                    if (currentMovie.audio === 'dublaj') {
+                        // Ses parçalarını ekle
+                        player.audioTracks().addTrack(new videojs.AudioTrack({
+                            id: 'dublaj-tr',
+                            kind: 'translation',
+                            label: 'Türkçe Dublaj',
+                            language: 'tr',
+                            enabled: true
+                        }));
+                        
+                        player.audioTracks().addTrack(new videojs.AudioTrack({
+                            id: 'orijinal',
+                            kind: 'main',
+                            label: 'Orijinal Ses',
+                            language: 'en',
+                            enabled: false
+                        }));
+                        
+                        // Ses parçalarını güncelleme olayını dinle
+                        player.audioTracks().addEventListener('change', function() {
+                            const tracks = player.audioTracks();
+                            for (let i = 0; i < tracks.length; i++) {
+                                console.log('Track:', tracks[i].id, tracks[i].enabled);
+                            }
+                        });
+                    }
+                    
                     // İzlenmiş filmleri kontrol et
                     const watchedMovies = JSON.parse(localStorage.getItem('watchedMovies') || '{}');
                     const isWatched = watchedMovies[currentMovie.id];
