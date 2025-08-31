@@ -255,6 +255,47 @@
             outline: 3px solid var(--primary);
             outline-offset: 3px;
         }
+        
+        /* Audio selection modal */
+        .audio-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+        
+        .audio-modal-content {
+            background: #181818;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        .audio-modal h2 {
+            margin-bottom: 20px;
+            color: var(--light);
+        }
+        
+        .audio-option {
+            background: var(--card-bg);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .audio-option:hover {
+            background: var(--primary);
+        }
     </style>
 </head>
 <body>
@@ -292,6 +333,19 @@
         </div>
     </div>
 
+    <!-- Audio Selection Modal -->
+    <div class="audio-modal" id="audio-modal" style="display: none;">
+        <div class="audio-modal-content">
+            <h2>Ses Seçeneği</h2>
+            <div class="audio-option" data-audio="dublaj">
+                Türkçe Dublaj
+            </div>
+            <div class="audio-option" data-audio="orijinal">
+                Orijinal Ses
+            </div>
+        </div>
+    </div>
+
     <!-- Video.js Library -->
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.3/hls.min.js"></script>
@@ -302,12 +356,14 @@
             let allMovies = [];
             let player;
             let lastPlayedMovie = null;
+            let currentMovie = null;
             
             // DOM elements
             const searchInput = document.querySelector('.search-input');
             const contentContainer = document.getElementById('content-container');
             const playerContainer = document.getElementById('player-container');
             const playerClose = document.getElementById('player-close');
+            const audioModal = document.getElementById('audio-modal');
             
             // Initialize the app
             initApp();
@@ -341,6 +397,15 @@
                         player.pause();
                         savePlaybackPosition();
                     }
+                });
+                
+                // Audio selection
+                document.querySelectorAll('.audio-option').forEach(option => {
+                    option.addEventListener('click', function() {
+                        const audioType = this.dataset.audio;
+                        audioModal.style.display = 'none';
+                        startPlayback(audioType);
+                    });
                 });
                 
                 // Keyboard navigation for TV
@@ -420,6 +485,11 @@
                 if (lastPlayedMovie && player && !player.paused()) {
                     const currentTime = player.currentTime();
                     localStorage.setItem(`movie_${lastPlayedMovie.id}`, currentTime);
+                    
+                    // Ayrıca bu filmi izlenmiş olarak işaretle
+                    const watchedMovies = JSON.parse(localStorage.getItem('watchedMovies') || '{}');
+                    watchedMovies[lastPlayedMovie.id] = true;
+                    localStorage.setItem('watchedMovies', JSON.stringify(watchedMovies));
                 }
             }
             
@@ -462,6 +532,14 @@
                             const groupMatch = line.match(/group-title="([^"]+)"/);
                             if (groupMatch) attrs.group = groupMatch[1];
                             
+                            // Dublaj bilgisini kontrol et
+                            const dublajMatch = title.match(/(dublaj|türkçe)/i);
+                            if (dublajMatch) {
+                                attrs.audio = 'dublaj';
+                            } else {
+                                attrs.audio = 'orijinal';
+                            }
+                            
                             currentMovie = {
                                 title: title,
                                 attrs: attrs
@@ -474,7 +552,8 @@
                                 title: currentMovie.title,
                                 url: line,
                                 poster: currentMovie.attrs.logo || 'https://via.placeholder.com/300x450/181818/ffffff?text=No+Image',
-                                group: currentMovie.attrs.group || 'Film'
+                                group: currentMovie.attrs.group || 'Film',
+                                audio: currentMovie.attrs.audio || 'orijinal'
                             });
                             currentMovie = {};
                         }
@@ -514,12 +593,15 @@
                     return;
                 }
                 
+                // İzlenmiş filmleri al
+                const watchedMovies = JSON.parse(localStorage.getItem('watchedMovies') || '{}');
+                
                 contentContainer.innerHTML = `
                     <h2 style="margin-bottom: 20px; font-size: 1.5rem;">${title}</h2>
                     <div class="content-grid">
                         ${movies.map(movie => {
                             const savedTime = localStorage.getItem(`movie_${movie.id}`);
-                            const hasResume = savedTime && parseFloat(savedTime) > 60; // Only show if more than 1 minute watched
+                            const hasResume = savedTime && parseFloat(savedTime) > 60 && watchedMovies[movie.id]; // Sadece izlenmiş filmler için
                             
                             return `
                                 <div class="content-card" tabindex="0" data-movie-id="${movie.id}">
@@ -549,10 +631,23 @@
                     return;
                 }
                 
+                currentMovie = movie;
                 lastPlayedMovie = movie;
                 
+                // Dublaj seçeneği olan filmlerde ses seçim modalını göster
+                if (movie.audio === 'dublaj') {
+                    audioModal.style.display = 'flex';
+                } else {
+                    // Doğrudan oynatmayı başlat
+                    startPlayback('orijinal');
+                }
+            }
+            
+            function startPlayback(audioType) {
+                if (!currentMovie) return;
+                
                 // Get saved playback position
-                const savedTime = localStorage.getItem(`movie_${movie.id}`);
+                const savedTime = localStorage.getItem(`movie_${currentMovie.id}`);
                 const startTime = savedTime ? parseFloat(savedTime) : 0;
                 
                 // Initialize player if not already done
@@ -569,15 +664,14 @@
                     player.on('pause', savePlaybackPosition);
                     player.on('ended', savePlaybackPosition);
                     
-                    // Add sample audio tracks (dublaj seçenekleri)
+                    // Ses parçalarını ekle
                     player.ready(function() {
-                        // Ses parçalarını ekle
                         player.audioTracks().addTrack(new videojs.AudioTrack({
                             id: 'dublaj-tr',
                             kind: 'translation',
                             label: 'Türkçe Dublaj',
                             language: 'tr',
-                            enabled: true
+                            enabled: audioType === 'dublaj'
                         }));
                         
                         player.audioTracks().addTrack(new videojs.AudioTrack({
@@ -585,28 +679,24 @@
                             kind: 'main',
                             label: 'Orijinal Ses',
                             language: 'en',
-                            enabled: false
+                            enabled: audioType === 'orijinal'
                         }));
-                        
-                        // Ses parçalarını güncelleme olayını dinle
-                        player.audioTracks().addEventListener('change', function() {
-                            const tracks = player.audioTracks();
-                            for (let i = 0; i < tracks.length; i++) {
-                                console.log('Track:', tracks[i].id, tracks[i].enabled);
-                            }
-                        });
                     });
                 }
                 
                 // Set player sources
                 player.src({
-                    src: movie.url,
-                    type: movie.url.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+                    src: currentMovie.url,
+                    type: currentMovie.url.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
                 });
                 
                 player.ready(function() {
-                    // Sadece kayıtlı bir izleme süresi varsa ve 60 saniyeden fazlaysa devam etmeyi sor
-                    if (startTime > 60) {
+                    // İzlenmiş filmleri kontrol et
+                    const watchedMovies = JSON.parse(localStorage.getItem('watchedMovies') || '{}');
+                    const isWatched = watchedMovies[currentMovie.id];
+                    
+                    // Sadece izlenmiş filmlerde ve 60 saniyeden fazla izlenmişse devam etmeyi sor
+                    if (isWatched && startTime > 60) {
                         const notification = player.createModal(`
                             <div style="background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 5px; text-align: center;">
                                 <h3>Kaldığınız yerden devam edilsin mi?</h3>
@@ -647,6 +737,11 @@
                 
                 // Show player
                 playerContainer.style.display = 'block';
+                
+                // Bu filmi izlenmiş olarak işaretle
+                const watchedMovies = JSON.parse(localStorage.getItem('watchedMovies') || '{}');
+                watchedMovies[currentMovie.id] = true;
+                localStorage.setItem('watchedMovies', JSON.stringify(watchedMovies));
             }
             
             function formatTime(seconds) {
