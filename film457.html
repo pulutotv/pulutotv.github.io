@@ -424,7 +424,7 @@
             }
             
             function loadM3UPlaylist() {
-                const m3uUrl = 'https://raw.githubusercontent.com/pulutotv/PulutoTVDIZIFILM/refs/heads/main/filmfun.m3u';
+                const m3uUrl = 'https://raw.githubusercontent.com/pulutotv/PulutoTVDIZIFILM/refs/heads/main/filmler.m3u';
                 
                 fetch(m3uUrl)
                     .then(response => {
@@ -440,6 +440,7 @@
             
             function parseM3U(data) {
                 try {
+                    // Improved M3U parser
                     const lines = data.split('\n');
                     const movies = [];
                     let currentMovie = {};
@@ -448,9 +449,12 @@
                         const line = lines[i].trim();
                         
                         if (line.startsWith('#EXTINF:')) {
+                            // Parse EXTINF line
                             const info = line.substring(8).split(',');
+                            const duration = info[0];
                             const title = info.slice(1).join(',').trim();
                             
+                            // Parse attributes
                             const attrs = {};
                             const attrMatch = line.match(/tvg-logo="([^"]+)"/);
                             if (attrMatch) attrs.logo = attrMatch[1];
@@ -463,22 +467,30 @@
                                 attrs: attrs
                             };
                         } else if (line && !line.startsWith('#') && currentMovie.title) {
+                            // This is the URL line
+                            currentMovie.url = line;
                             movies.push({
-                                id: movies.length + 1, // Her filme benzersiz bir ID ata
+                                id: movies.length + 1, // Use a simple numeric ID
                                 title: currentMovie.title,
                                 url: line,
                                 poster: currentMovie.attrs.logo || 'https://via.placeholder.com/300x450/181818/ffffff?text=No+Image',
                                 group: currentMovie.attrs.group || 'Film'
                             });
-                            currentMovie = {}; // Bir sonraki film için sıfırla
+                            currentMovie = {};
                         }
                     }
                     
-                    allMovies = movies; // Filtrelemeyi şimdilik kaldırıyoruz, tüm içerik listelensin
-                    renderMovies(allMovies, 'Tüm İçerikler');
+                    // Filter out non-movie content
+                    allMovies = movies.filter(movie => 
+                        !movie.title.toLowerCase().includes('dizi') && 
+                        !movie.title.toLowerCase().includes('belgesel') &&
+                        !movie.title.toLowerCase().includes('animasyon')
+                    );
+                    
+                    renderMovies(allMovies, 'Tüm Filmler');
                 } catch (error) {
-                    console.error('M3U işlenirken hata:', error);
-                    showError('Film listesi işlenirken bir hata oluştu.');
+                    console.error('Error parsing M3U:', error);
+                    showError('Film listesi işlenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
                 }
             }
             
@@ -532,50 +544,97 @@
             function playMovie(movieId) {
                 const movie = allMovies.find(m => m.id == movieId);
                 if (!movie || !movie.url) {
+                    console.error('Film bilgileri veya URL bulunamadı.');
                     alert('Bu film için geçerli bir yayın adresi bulunamadı.');
                     return;
                 }
-
-                // Kayıtlı zamanı SADECE bu film ID'si için al
-                const savedTime = localStorage.getItem(`movie_${movie.id}`);
-                const startTime = (savedTime && parseFloat(savedTime) > 60) ? parseFloat(savedTime) : 0;
-
-                playerContainer.style.display = 'block';
+                
                 lastPlayedMovie = movie;
-
+                
+                // Get saved playback position
+                const savedTime = localStorage.getItem(`movie_${movie.id}`);
+                const startTime = savedTime ? parseFloat(savedTime) : 0;
+                
+                // Initialize player if not already done
                 if (!player) {
                     player = videojs('video', {
-                        controls: true,
-                        autoplay: false,
-                        preload: 'auto',
-                        fluid: true
+                        fluid: true,
+                        liveui: true,
+                        playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2],
+                        userActions: {
+                            hotkeys: true
+                        }
                     });
                     
-                    player.on('timeupdate', savePlaybackPosition); // Kaydetme olayını timeupdate yapalım
+                    player.on('pause', savePlaybackPosition);
+                    player.on('ended', savePlaybackPosition);
+                    
+                    // Add sample audio tracks (dublaj seçenekleri)
+                    player.ready(function() {
+                        // Ses parçalarını ekle
+                        player.audioTracks().addTrack(new videojs.AudioTrack({
+                            id: 'dublaj-tr',
+                            kind: 'translation',
+                            label: 'Türkçe Dublaj',
+                            language: 'tr',
+                            enabled: true
+                        }));
+                        
+                        player.audioTracks().addTrack(new videojs.AudioTrack({
+                            id: 'orijinal',
+                            kind: 'main',
+                            label: 'Orijinal Ses',
+                            language: 'en',
+                            enabled: false
+                        }));
+                        
+                        // Ses parçalarını güncelleme olayını dinle
+                        player.audioTracks().addEventListener('change', function() {
+                            const tracks = player.audioTracks();
+                            for (let i = 0; i < tracks.length; i++) {
+                                console.log('Track:', tracks[i].id, tracks[i].enabled);
+                            }
+                        });
+                    });
                 }
                 
+                // Set player sources
                 player.src({
                     src: movie.url,
                     type: movie.url.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
                 });
                 
                 player.ready(function() {
-                    // Sadece kayıtlı süre varsa sorma ekranını göster
-                    if (startTime > 0) {
-                        player.currentTime(startTime);
+                    // Sadece kayıtlı bir izleme süresi varsa ve 60 saniyeden fazlaysa devam etmeyi sor
+                    if (startTime > 60) {
                         const notification = player.createModal(`
                             <div style="background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 5px; text-align: center;">
-                                <h3>Kaldığınız yerden devam edilsin mi? (${formatTime(startTime)})</h3>
-                                <button onclick="this.parentElement.parentElement.close()" style="background:#e50914;color:white;border:none;padding:8px 15px;margin:5px;cursor:pointer;">Evet</button>
-                                <button onclick="player.currentTime(0); this.parentElement.parentElement.close();" style="background:#333;color:white;border:none;padding:8px 15px;margin:5px;cursor:pointer;">Baştan Başlat</button>
+                                <h3>Kaldığınız yerden devam edilsin mi?</h3>
+                                <p>${formatTime(startTime)}</p>
+                                <div style="margin-top: 15px;">
+                                    <button onclick="this.parentElement.parentElement.close()" style="background: #e50914; color: white; border: none; padding: 8px 15px; margin: 0 5px; border-radius: 3px; cursor: pointer;">
+                                        Evet
+                                    </button>
+                                    <button onclick="this.parentElement.parentElement.close(); player.currentTime(0);" style="background: #333; color: white; border: none; padding: 8px 15px; margin: 0 5px; border-radius: 3px; cursor: pointer;">
+                                        Baştan Başlat
+                                    </button>
+                                </div>
                             </div>
                         `);
-                        setTimeout(() => notification.close(), 5000);
+                        
+                        // Auto close after 5 seconds
+                        setTimeout(() => {
+                            if (notification && notification.close) {
+                                notification.close();
+                            }
+                        }, 5000);
+                    } else {
+                        // Eğer kayıtlı süre yoksa veya 60 saniyeden azsa baştan başlat
+                        player.currentTime(0);
                     }
                     
+                    // Auto play and fullscreen
                     player.play();
-                });
-            }
                     
                     setTimeout(() => {
                         if (!player.isFullscreen()) {
@@ -585,6 +644,9 @@
                         }
                     }, 300);
                 });
+                
+                // Show player
+                playerContainer.style.display = 'block';
             }
             
             function formatTime(seconds) {
