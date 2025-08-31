@@ -175,6 +175,18 @@
             font-weight: bold;
         }
 
+        .audio-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: var(--primary);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
         /* Player */
         .player-container {
             position: fixed;
@@ -608,6 +620,7 @@
                                 <div class="content-card" tabindex="0" data-movie-id="${movie.id}">
                                     <img src="${movie.poster}" alt="${movie.title}" class="content-poster" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450/181818/ffffff?text=No+Image'">
                                     ${hasResume ? '<div class="resume-badge">KALDIĞIN YERDEN</div>' : ''}
+                                    ${movie.audio === 'dublaj' ? '<div class="audio-badge">TR DUBLAJ</div>' : ''}
                                     <div class="movie-title">${movie.title}</div>
                                 </div>
                             `;
