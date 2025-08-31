@@ -345,19 +345,6 @@
         </div>
     </div>
 
-    <!-- Audio Selection Modal -->
-    <div class="audio-modal" id="audio-modal" style="display: none;">
-        <div class="audio-modal-content">
-            <h2>Ses Seçeneği</h2>
-            <div class="audio-option" data-audio="dublaj">
-                Türkçe Dublaj
-            </div>
-            <div class="audio-option" data-audio="orijinal">
-                Orijinal Ses
-            </div>
-        </div>
-    </div>
-
     <!-- Video.js Library -->
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.3/hls.min.js"></script>
@@ -369,14 +356,12 @@
             let player;
             let lastPlayedMovie = null;
             let currentMovie = null;
-            let selectedAudioType = 'orijinal';
             
             // DOM elements
             const searchInput = document.querySelector('.search-input');
             const contentContainer = document.getElementById('content-container');
             const playerContainer = document.getElementById('player-container');
             const playerClose = document.getElementById('player-close');
-            const audioModal = document.getElementById('audio-modal');
             
             // Initialize the app
             initApp();
@@ -410,15 +395,6 @@
                         player.pause();
                         savePlaybackPosition();
                     }
-                });
-                
-                // Audio selection
-                document.querySelectorAll('.audio-option').forEach(option => {
-                    option.addEventListener('click', function() {
-                        selectedAudioType = this.dataset.audio;
-                        audioModal.style.display = 'none';
-                        startPlayback();
-                    });
                 });
                 
                 // Keyboard navigation for TV
@@ -681,13 +657,11 @@
                     
                     // Buton event listener'ları
                     document.getElementById('audio-dublaj').addEventListener('click', function() {
-                        selectedAudioType = 'dublaj';
                         document.body.removeChild(modal);
                         startPlayback();
                     });
                     
                     document.getElementById('audio-orijinal').addEventListener('click', function() {
-                        selectedAudioType = 'orijinal';
                         document.body.removeChild(modal);
                         startPlayback();
                     });
