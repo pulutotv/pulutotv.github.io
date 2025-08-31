@@ -323,6 +323,26 @@
             display: block !important;
         }
 
+        /* Custom audio tracks style */
+        .vjs-audio-button .vjs-menu .vjs-menu-content {
+            background-color: #181818;
+            width: 150px;
+        }
+
+        .vjs-audio-button .vjs-menu li {
+            color: white;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+
+        .vjs-audio-button .vjs-menu li.vjs-selected {
+            background-color: #00a8ff;
+        }
+
+        .vjs-audio-button .vjs-menu li:hover {
+            background-color: #333;
+        }
+
         /* Loading and Error */
         .loading, .error {
             display: flex;
@@ -529,7 +549,7 @@
                     toggleSidebar(false);
                 });
                 
-                // Category search - FOCUS FIX: Removed automatic focus shifting
+                // Category search
                 categorySearch.addEventListener('input', function() {
                     const query = this.value.trim().toLowerCase();
                     filterCategories(query);
@@ -779,10 +799,16 @@
                 if (lastPlayedEpisode && player && !player.paused()) {
                     const currentTime = player.currentTime();
                     localStorage.setItem(`episode_${lastPlayedEpisode.id}`, currentTime);
+                    
+                    // Ayrıca bu diziyi izlenmiş olarak işaretle
+                    const watchedSeries = JSON.parse(localStorage.getItem('watchedSeries') || '{}');
+                    watchedSeries[lastPlayedEpisode.id] = true;
+                    localStorage.setItem('watchedSeries', JSON.stringify(watchedSeries));
                 }
             }
             
             function loadM3UPlaylist() {
+                // Güncellenmiş M3U URL'si
                 const m3uUrl = 'https://raw.githubusercontent.com/pulutotv/PulutoTVDIZIFILM/refs/heads/main/diziler.m3u';
                 
                 fetch(m3uUrl)
@@ -941,11 +967,15 @@
                     return;
                 }
                 
+                // İzlenmiş dizileri al
+                const watchedSeries = JSON.parse(localStorage.getItem('watchedSeries') || '{}');
+                
                 contentContainer.innerHTML = `
                     <h2 class="section-title">${title}</h2>
                     <div class="content-grid">
                         ${seriesList.map(series => {
-                            const hasResume = localStorage.getItem(`episode_${series.url}`);
+                            const savedTime = localStorage.getItem(`episode_${series.url}`);
+                            const hasResume = savedTime && parseFloat(savedTime) > 60 && watchedSeries[series.url];
                             
                             return `
                                 <div class="content-card" tabindex="0" data-series-id="${series.title}">
@@ -983,7 +1013,8 @@
                     <h2 class="search-results-title">"${query}" için arama sonuçları (${currentCategory === 'all' ? 'Tüm Kategoriler' : currentCategory})</h2>
                     <div class="content-grid">
                         ${results.map(series => {
-                            const hasResume = localStorage.getItem(`episode_${series.url}`);
+                            const savedTime = localStorage.getItem(`episode_${series.url}`);
+                            const hasResume = savedTime && parseFloat(savedTime) > 60;
                             
                             return `
                                 <div class="content-card" tabindex="0" data-series-id="${series.title}">
@@ -1024,64 +1055,23 @@
                     url: series.url
                 };
                 
-                // Show player
-                playerContainer.style.display = 'block';
-                
-                // Check for saved playback position
+                // Get saved playback position
                 const savedTime = localStorage.getItem(`episode_${series.url}`);
                 const startTime = savedTime ? parseFloat(savedTime) : 0;
                 
-                // Initialize player if not already initialized
+                // Initialize player if not already done
                 if (!player) {
                     player = videojs('video', {
-                        controls: true,
-                        autoplay: true,
-                        preload: 'auto',
-                        responsive: true,
                         fluid: true,
+                        liveui: true,
                         playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2],
-                        controlBar: {
-                            children: [
-                                'playToggle',
-                                'volumePanel',
-                                'currentTimeDisplay',
-                                'timeDivider',
-                                'durationDisplay',
-                                'progressControl',
-                                'remainingTimeDisplay',
-                                'playbackRateMenuButton',
-                                'audioTrackButton',
-                                'subtitlesButton',
-                                'fullscreenToggle'
-                            ],
-                            'currentTimeDisplay': true,
-                            'timeDivider': true,
-                            'durationDisplay': true
-                        },
-                        audioTracks: {
-                            mode: 'disabled'
+                        userActions: {
+                            hotkeys: true
                         }
                     });
                     
                     player.on('pause', savePlaybackPosition);
                     player.on('ended', savePlaybackPosition);
-                    
-                    // Add sample audio tracks
-                    player.audioTracks().addTrack(new videojs.AudioTrack({
-                        id: 'dublaj-tr',
-                        kind: 'translation',
-                        label: 'Türkçe Dublaj',
-                        language: 'tr',
-                        enabled: true
-                    }));
-                    
-                    player.audioTracks().addTrack(new videojs.AudioTrack({
-                        id: 'orijinal',
-                        kind: 'main',
-                        label: 'Orijinal Ses',
-                        language: 'en',
-                        enabled: false
-                    }));
                 }
                 
                 // Set player sources
@@ -1091,44 +1081,92 @@
                 });
                 
                 player.ready(function() {
-                    if (startTime > 0) {
-                        player.currentTime(startTime);
+                    // İzlenmiş dizileri kontrol et
+                    const watchedSeries = JSON.parse(localStorage.getItem('watchedSeries') || '{}');
+                    const isWatched = watchedSeries[series.url];
+                    
+                    // Sadece izlenmiş dizilerde ve 60 saniyeden fazla izlenmişse devam etmeyi sor
+                    if (isWatched && startTime > 60) {
+                        // Modal oluştur
+                        const modal = document.createElement('div');
+                        modal.style.position = 'fixed';
+                        modal.style.top = '0';
+                        modal.style.left = '0';
+                        modal.style.width = '100%';
+                        modal.style.height = '100%';
+                        modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                        modal.style.display = 'flex';
+                        modal.style.justifyContent = 'center';
+                        modal.style.alignItems = 'center';
+                        modal.style.zIndex = '1000';
                         
-                        // Show resume notification
-                        const notification = player.createModal(`
-                            <div style="background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 5px; text-align: center;">
-                                <h3>Kaldığınız yerden devam edilsin mi?</h3>
-                                <p>${formatTime(startTime)}</p>
-                                <div style="margin-top: 15px;">
-                                    <button onclick="this.parentElement.parentElement.close()" style="background: #00a8ff; color: white; border: none; padding: 8px 15px; margin: 0 5px; border-radius: 3px; cursor: pointer;">
+                        modal.innerHTML = `
+                            <div style="background: #181818; padding: 30px; border-radius: 8px; width: 90%; max-width: 500px; text-align: center;">
+                                <h2 style="margin-bottom: 20px; color: white;">Kaldığınız yerden devam edilsin mi?</h2>
+                                <p style="color: white; margin-bottom: 20px;">${formatTime(startTime)}</p>
+                                <div style="display: flex; justify-content: center; gap: 15px;">
+                                    <button id="resume-yes" style="background: #00a8ff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
                                         Evet
                                     </button>
-                                    <button onclick="this.parentElement.parentElement.close(); player.currentTime(0);" style="background: #333; color: white; border: none; padding: 8px 15px; margin: 0 5px; border-radius: 3px; cursor: pointer;">
+                                    <button id="resume-no" style="background: #333; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
                                         Baştan Başlat
                                     </button>
                                 </div>
                             </div>
-                        `);
+                        `;
                         
-                        // Auto close after 5 seconds
+                        document.body.appendChild(modal);
+                        
+                        // Buton event listener'ları
+                        document.getElementById('resume-yes').addEventListener('click', function() {
+                            player.currentTime(startTime);
+                            document.body.removeChild(modal);
+                            player.play();
+                            playerContainer.style.display = 'block';
+                            
+                            setTimeout(() => {
+                                if (!player.isFullscreen()) {
+                                    player.requestFullscreen().catch(e => {
+                                        console.log('Fullscreen error:', e);
+                                    });
+                                }
+                            }, 300);
+                        });
+                        
+                        document.getElementById('resume-no').addEventListener('click', function() {
+                            player.currentTime(0);
+                            document.body.removeChild(modal);
+                            player.play();
+                            playerContainer.style.display = 'block';
+                            
+                            setTimeout(() => {
+                                if (!player.isFullscreen()) {
+                                    player.requestFullscreen().catch(e => {
+                                        console.log('Fullscreen error:', e);
+                                    });
+                                }
+                            }, 300);
+                        });
+                    } else {
+                        // Eğer kayıtlı süre yoksa veya 60 saniyeden azsa baştan başlat
+                        player.currentTime(0);
+                        player.play();
+                        playerContainer.style.display = 'block';
+                        
                         setTimeout(() => {
-                            if (notification && notification.close) {
-                                notification.close();
+                            if (!player.isFullscreen()) {
+                                player.requestFullscreen().catch(e => {
+                                    console.log('Fullscreen error:', e);
+                                });
                             }
-                        }, 5000);
+                        }, 300);
                     }
-                    
-                    // Auto play and fullscreen
-                    player.play();
-                    
-                    setTimeout(() => {
-                        if (!player.isFullscreen()) {
-                            player.requestFullscreen().catch(e => {
-                                console.log('Fullscreen error:', e);
-                            });
-                        }
-                    }, 300);
                 });
+                
+                // Bu diziyi izlenmiş olarak işaretle
+                const watchedSeries = JSON.parse(localStorage.getItem('watchedSeries') || '{}');
+                watchedSeries[series.url] = true;
+                localStorage.setItem('watchedSeries', JSON.stringify(watchedSeries));
             }
             
             function formatTime(seconds) {
