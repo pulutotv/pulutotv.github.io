@@ -541,91 +541,54 @@
                 });
             }
             
-            function playMovie(movieId) {
+            
+                   function playMovie(movieId) {
                 const movie = allMovies.find(m => m.id == movieId);
-                if (!movie) return;
-                
-                lastPlayedMovie = movie;
-                
-                // Show player
+                if (!movie || !movie.url) {
+                    console.error('Film bilgileri veya URL bulunamadı.');
+                    alert('Bu film için geçerli bir yayın adresi bulunamadı.');
+                    return;
+                }
+
+                // 1. Oynatma pozisyonunu SADECE bu film için localStorage'dan alıyoruz.
+                const savedTime = localStorage.getItem(`movie_${movie.id}`);
+                // 2. Eğer kayıtlı süre yoksa veya 60 saniyeden azsa, 0'dan başlatıyoruz.
+                const startTime = (savedTime && parseFloat(savedTime) > 60) ? parseFloat(savedTime) : 0;
+
+                // 3. Oynatıcıyı (player) görünür yapıyoruz.
                 playerContainer.style.display = 'block';
                 
-                // Check for saved playback position
-                const savedTime = localStorage.getItem(`movie_${movieId}`);
-                const startTime = savedTime ? parseFloat(savedTime) : 0;
-                
-                // Initialize player if not already initialized
+                // 4. Son oynatılan filmi saklıyoruz ki doğru yere kaydedebilelim.
+                lastPlayedMovie = movie;
+
+                // Eğer video.js oynatıcısı henüz başlatılmadıysa, şimdi başlatıyoruz.
                 if (!player) {
                     player = videojs('video', {
                         controls: true,
                         autoplay: true,
                         preload: 'auto',
-                        responsive: true,
-                        fluid: true,
-                        playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2],
-                        controlBar: {
-                            children: [
-                                'playToggle',
-                                'volumePanel',
-                                'currentTimeDisplay',
-                                'timeDivider',
-                                'durationDisplay',
-                                'progressControl',
-                                'remainingTimeDisplay',
-                                'playbackRateMenuButton',
-                                'audioTrackButton', // Dublaj seçenekleri için eklendi
-                                'subtitlesButton',
-                                'fullscreenToggle'
-                            ],
-                            'currentTimeDisplay': true,
-                            'timeDivider': true,
-                            'durationDisplay': true
-                        }
+                        fluid: true
                     });
                     
                     player.on('pause', savePlaybackPosition);
-                    player.on('ended', savePlaybackPosition);
-                    
-                    // Add sample audio tracks (dublaj seçenekleri)
-                    player.ready(function() {
-                        // Ses parçalarını ekle
-                        player.audioTracks().addTrack(new videojs.AudioTrack({
-                            id: 'dublaj-tr',
-                            kind: 'translation',
-                            label: 'Türkçe Dublaj',
-                            language: 'tr',
-                            enabled: true
-                        }));
-                        
-                        player.audioTracks().addTrack(new videojs.AudioTrack({
-                            id: 'orijinal',
-                            kind: 'main',
-                            label: 'Orijinal Ses',
-                            language: 'en',
-                            enabled: false
-                        }));
-                        
-                        // Ses parçalarını güncelleme olayını dinle
-                        player.audioTracks().addEventListener('change', function() {
-                            const tracks = player.audioTracks();
-                            for (let i = 0; i < tracks.length; i++) {
-                                console.log('Track:', tracks[i].id, tracks[i].enabled);
-                            }
-                        });
+                    player.on('ended', function() {
+                        // Film bittiğinde kaydı sıfırla veya sil
+                        localStorage.removeItem(`movie_${lastPlayedMovie.id}`);
                     });
                 }
                 
-                // Set player sources
+                // Oynatıcıya filmin URL'sini veriyoruz.
                 player.src({
                     src: movie.url,
                     type: movie.url.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
                 });
                 
+                // Oynatıcı hazır olduğunda yapılacaklar
                 player.ready(function() {
+                    // SADECE film daha önce izlenmişse (startTime > 0 ise) sorma ekranını göster.
                     if (startTime > 0) {
                         player.currentTime(startTime);
                         
-                        // Show resume notification
                         const notification = player.createModal(`
                             <div style="background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 5px; text-align: center;">
                                 <h3>Kaldığınız yerden devam edilsin mi?</h3>
@@ -641,25 +604,27 @@
                             </div>
                         `);
                         
-                        // Auto close after 5 seconds
                         setTimeout(() => {
                             if (notification && notification.close) {
                                 notification.close();
                             }
                         }, 5000);
+                    } else {
+                        player.currentTime(0); // Hiç izlenmediyse en baştan başlat.
                     }
                     
-                    // Auto play and fullscreen
                     player.play();
                     
+                    // Oynatıcıyı tam ekran yapmayı dene
                     setTimeout(() => {
                         if (!player.isFullscreen()) {
                             player.requestFullscreen().catch(e => {
-                                console.log('Fullscreen error:', e);
+                                console.log('Tam ekran hatası:', e);
                             });
                         }
                     }, 300);
                 });
+            }
             }
             
             function formatTime(seconds) {
